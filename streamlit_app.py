@@ -16,7 +16,7 @@ from custom_transformers import PreprocessDataTransformer
 st.set_page_config(page_title="AFib Risk Prediction", layout="wide")
 
 LOCAL_MODEL_PATH = "model.pkl"
-LOCAL_DATA_PATH = "data.csv"
+LOCAL_DATA_PATH = "synthetic_data.csv"
 
 model = joblib.load(LOCAL_MODEL_PATH)
 
