@@ -1,5 +1,4 @@
 import os
-import boto3
 import joblib
 import streamlit as st
 import numpy as np
@@ -16,43 +15,14 @@ from custom_transformers import PreprocessDataTransformer
 
 st.set_page_config(page_title="AFib Risk Prediction", layout="wide")
 
-DATA_BUCKET = "prediction-of-atrial-fibrillation"
-MODEL_KEY = "model.pkl"
 LOCAL_MODEL_PATH = "model.pkl"
-DATASET_KEY = "synthetic_data_stats_competition_2025.xlsx"
-LOCAL_DATASET_PATH = "synthetic_data_stats_competition_2025.xlsx"
-USER_INPUTS_CSV_KEY = "user_inputs.csv"
+LOCAL_DATA_PATH = "data.csv"
 
-s3 = boto3.client("s3")
-
-def download_file_from_s3(bucket, key, local_path):
-    s3.download_file(bucket, key, local_path)
-
-def load_existing_csv(bucket, key):
-    local_path = f"/tmp/{key}"
-    try:
-        s3.download_file(bucket, key, local_path)
-        df = pd.read_csv(local_path)
-        os.remove(local_path)
-        return df
-    except Exception as e:
-        return pd.DataFrame()
-
-def upload_csv_to_s3(df, bucket, key):
-    local_path = f"/tmp/{key}"
-    df.to_csv(local_path, index=False)
-    s3.upload_file(local_path, bucket, key)
-    os.remove(local_path)
-
-if not os.path.exists(LOCAL_MODEL_PATH):
-    download_file_from_s3(DATA_BUCKET, MODEL_KEY, LOCAL_MODEL_PATH)
 model = joblib.load(LOCAL_MODEL_PATH)
 
 @st.cache_data(show_spinner=True)
 def load_dataset():
-    if not os.path.exists(LOCAL_DATASET_PATH):
-        download_file_from_s3(DATA_BUCKET, DATASET_KEY, LOCAL_DATASET_PATH)
-    return pd.read_excel(LOCAL_DATASET_PATH)
+    return pd.read_csv(LOCAL_DATA_PATH)
 
 data = load_dataset()
 
@@ -122,14 +92,14 @@ def plot_distribution_with_afib_hue(df, form_values, feature_name, title):
         kde=False,
         multiple="stack",
         alpha=0.6
-        )
+    )
     ax.axvline(
         form_values[feature_name],
         color="#db6459",
         linestyle="--",
         linewidth=2,
         label=f"Patient Value: {form_values[feature_name]}"
-     )
+    )
     afib_absent = mpatches.Patch(color=custom_palette[0], label="AFib Absent")
     afib_present = mpatches.Patch(color=custom_palette[1], label="AFib Present")
     patient_line = mlines.Line2D([], [], color='#db6459', linestyle='--', linewidth=2, label=f"Patient Value: {form_values[feature_name]}")
@@ -137,7 +107,7 @@ def plot_distribution_with_afib_hue(df, form_values, feature_name, title):
     ax.set_title(title)
     ax.set_xlabel(feature_name)
     ax.set_ylabel("Frequency")
-    st.pyplot(fig)    
+    st.pyplot(fig)
 
 default_values = {
     "patient_id": None,
@@ -432,7 +402,6 @@ def render_form():
         lab_hdl = lab_c6.text_input("Enter Lowest HDL Cholesterol ", key=unique_key("hdl_peri_lowest"))
         lab_tg = lab_c4.text_input("Enter Highest Serum Triglycerides", key=unique_key("tg_peri_highest"))
         
-        # Process lab inputs: if blank, use default; otherwise convert to float.
         def process_lab(input_str, default):
             if input_str.strip() == "":
                 return default
@@ -562,14 +531,7 @@ if submit_flag:
             st.error(f"An error occurred during prediction: {e}")
 
 if save_flag:
-    df_input = pd.DataFrame([form_values])
-    try:
-        df_existing = load_existing_csv(DATA_BUCKET, USER_INPUTS_CSV_KEY)
-        df_updated = pd.concat([df_existing, df_input], ignore_index=True)
-        upload_csv_to_s3(df_updated, DATA_BUCKET, USER_INPUTS_CSV_KEY)
-        st.success("Patient information has been saved to S3 successfully.")
-    except Exception as e:
-        st.error(f"Failed to save patient information to S3: {e}")
+    st.info("Saving to S3 is currently disabled in this environment.")
 
 if st.button("Clear Form for New Entry 🗑️", key="clear_form_btn"):
     st.session_state["form_key"] = str(uuid.uuid4())
